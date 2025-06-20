@@ -35,29 +35,53 @@ export class ClientChannel extends BaseChannel implements Transport {
   private streamIDCounter = 0;
   private readonly streams = new Map<string, activeClienStream>();
 
-  constructor(pc: RTCPeerConnection, dc: RTCDataChannel) {
-    super(pc, dc);
-    dc.addEventListener('message', (event: MessageEvent<ArrayBuffer>) => {
-      this.onChannelMessage(event);
-    });
-    pc.addEventListener('iceconnectionstatechange', () => {
-      const state = pc.iceConnectionState;
-      if (
-        !(state === 'failed' || state === 'disconnected' || state === 'closed')
-      ) {
-        return;
-      }
-      this.onConnectionTerminated();
-    });
-    dc.addEventListener('close', () => this.onConnectionTerminated());
-  }
+  onDataChannelMessage = (event: MessageEvent<ArrayBuffer>) => {
+    this.onChannelMessage(event);
+  };
 
-  private onConnectionTerminated() {
+  onPcIceConnectionStateChange = () => {
+    const state = this.pc.iceConnectionState;
+    if (
+      !(state === 'failed' || state === 'disconnected' || state === 'closed')
+    ) {
+      return;
+    }
+    this.onConnectionTerminated();
+  };
+
+  private onConnectionTerminated = () => {
     // we may call this twice but we know closed will be true at this point.
     this.closeWithReason(new ConnectionClosedError('data channel closed'));
     for (const stream of this.streams.values()) {
       stream.cs.closeWithRecvError();
     }
+  };
+
+  private readonly pc: RTCPeerConnection;
+  private readonly dc: RTCDataChannel;
+
+  constructor(pc: RTCPeerConnection, dc: RTCDataChannel) {
+    super(pc, dc);
+
+    this.pc = pc;
+    this.dc = dc;
+
+    this.dc.addEventListener('message', this.onDataChannelMessage);
+    this.pc.addEventListener(
+      'iceconnectionstatechange',
+      this.onPcIceConnectionStateChange
+    );
+    this.dc.addEventListener('close', this.onConnectionTerminated);
+  }
+
+  public override closeWithReason(err: Error): void {
+    super.closeWithReason(err);
+    this.dc.removeEventListener('message', this.onDataChannelMessage);
+    this.pc.removeEventListener(
+      'iceconnectionstatechange',
+      this.onPcIceConnectionStateChange
+    );
+    this.dc.removeEventListener('close', this.onConnectionTerminated);
   }
 
   private onChannelMessage(event: MessageEvent<ArrayBuffer>) {
