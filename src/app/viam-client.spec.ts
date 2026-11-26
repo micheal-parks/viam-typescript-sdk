@@ -152,6 +152,21 @@ describe('ViamClient', () => {
       );
     });
 
+    it('resolves an access token provider to an access token for the robot client', async () => {
+      options = {
+        credentials: { type: 'access-token-provider', payload: () => 'providedToken' },
+      };
+      const client = await subject();
+      await client.connectToMachine({ host: 'test.machine.host' });
+
+      expect(createRobotClient).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          host: 'test.machine.host',
+          credentials: { type: 'access-token', payload: 'providedToken' },
+        }),
+      );
+    });
+
     it('errors if no address could be found', async () => {
       options = { credentials: testCredential };
       const client = await subject();

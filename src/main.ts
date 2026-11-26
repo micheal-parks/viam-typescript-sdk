@@ -27,7 +27,12 @@ export * as robotApi from './gen/robot/v1/robot_pb';
 
 export { createViamClient, type ViamClient, type ViamClientOptions } from './app/viam-client';
 
-export { type AccessToken, type Credential, type Credentials } from './app/viam-transport';
+export {
+  type AccessToken,
+  type AccessTokenProvider,
+  type Credential,
+  type Credentials,
+} from './app/viam-transport';
 
 export {
   DatasetType,

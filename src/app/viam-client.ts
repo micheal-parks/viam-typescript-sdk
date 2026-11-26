@@ -6,11 +6,11 @@ import { BillingClient } from './billing-client';
 import { DataClient } from './data-client';
 import { MlTrainingClient } from './ml-training-client';
 import { ProvisioningClient } from './provisioning-client';
-import { createViamTransport, type Credentials } from './viam-transport';
+import { createViamTransport, type AccessTokenProvider, type Credentials } from './viam-transport';
 
 export interface ViamClientOptions {
   serviceHost?: string;
-  credentials: Credentials;
+  credentials: Credentials | AccessTokenProvider;
 }
 
 /** Instantiate a connected gRPC client that interfaces with Viam app. */
@@ -30,7 +30,7 @@ interface ViamClientMachineConnectionOpts {
 /** A gRPC client for method calls to Viam app. */
 export class ViamClient {
   private transport: Transport;
-  private credentials: Credentials;
+  private credentials: Credentials | AccessTokenProvider;
 
   public readonly dataClient: DataClient;
   public readonly appClient: AppClient;
@@ -38,7 +38,7 @@ export class ViamClient {
   public readonly provisioningClient: ProvisioningClient;
   public readonly billingClient: BillingClient;
 
-  constructor(transport: Transport, credentials: Credentials) {
+  constructor(transport: Transport, credentials: Credentials | AccessTokenProvider) {
     this.transport = transport;
     this.credentials = credentials;
 
@@ -92,7 +92,11 @@ export class ViamClient {
 
     return createRobotClient({
       host: address,
-      credentials: this.credentials,
+      // Robot dialing takes a fixed token, so a provider is resolved once, here.
+      credentials:
+        this.credentials.type === 'access-token-provider'
+          ? { type: 'access-token', payload: await this.credentials.payload() }
+          : this.credentials,
       signalingAddress: 'https://app.viam.com:443',
       reconnectMaxAttempts: 1,
     });
